@@ -75,12 +75,12 @@ const DEFAULT_ANIMATION_CONFIGS = {
   timing: {
     duration: 150,
     easing: Easing.inOut(Easing.ease),
-    delay: 0,
+    delay: 20,
   },
-  // decay : { // This has a serious bug
-  //   velocity     : 1,
-  //   deceleration : 0.997
-  // }
+  // decay: { // This has a serious bug
+  // velocity: 0.5,
+  // deceleration: 0.9,
+  // },
 };
 
 type ContainerType = { width: number; height: number };
@@ -212,29 +212,29 @@ type SliderProps = {
 const emptyDimension = { width: 0, height: 0 };
 
 const Slider: React.FC<SliderProps> = ({
-  animationConfig = {},
-  animateTransitions = true,
-  value = 0,
-  minimumValue = 0,
-  maximumValue = 1,
-  step = 0,
-  onSlidingStart = noop,
-  onSlidingComplete = noop,
-  onValueChange,
-  minimumTrackTintColor = '#3f3f3f',
-  maximumTrackTintColor = '#b3b3b3',
-  thumbTintColor = '#343434',
-  thumbTouchSize = { width: 40, height: 40 },
-  animationType = 'timing',
-  thumbImage = null,
-  disabled = false,
-  styles = {},
-  style = {},
-  trackStyle = {},
-  thumbStyle = {},
-  debugTouchArea = false,
-  ...rest
-}) => {
+                                         animationConfig = {},
+                                         animateTransitions = true,
+                                         value = 0,
+                                         minimumValue = 0,
+                                         maximumValue = 1,
+                                         step = 0,
+                                         onSlidingStart = noop,
+                                         onSlidingComplete = noop,
+                                         onValueChange,
+                                         minimumTrackTintColor = '#3f3f3f',
+                                         maximumTrackTintColor = '#b3b3b3',
+                                         thumbTintColor = '#343434',
+                                         thumbTouchSize = { width: 40, height: 40 },
+                                         animationType = 'timing',
+                                         thumbImage = null,
+                                         disabled = false,
+                                         styles = {},
+                                         style = {},
+                                         trackStyle = {},
+                                         thumbStyle = {},
+                                         debugTouchArea = false,
+                                         ...rest
+                                       }) => {
   const sizes = useRef<Record<MeasuredDimensions, ContainerType>>({
     containerSize: { ...emptyDimension },
     trackSize: { ...emptyDimension },
@@ -335,7 +335,11 @@ const Slider: React.FC<SliderProps> = ({
 
     const newValue = getValue(gestureState);
 
-    setCurrentValue(newValue);
+    if (animateTransitions) {
+      setCurrentValueAnimated(newValue);
+    } else {
+      setCurrentValue(newValue);
+    }
 
     onValueChange(newValue);
   };
@@ -349,7 +353,13 @@ const Slider: React.FC<SliderProps> = ({
     }
 
     const newValue = getValue(gestureState);
-    setCurrentValue(newValue);
+
+    if (animateTransitions) {
+      setCurrentValueAnimated(newValue);
+    } else {
+      setCurrentValue(newValue);
+    }
+
     onSlidingComplete(newValue);
   };
 
@@ -378,7 +388,7 @@ const Slider: React.FC<SliderProps> = ({
   };
 
   const setCurrentValue = (valueToSet: number) => {
-    animationValue.setValue(valueToSet);
+    // animationValue.setValue(valueToSet);
     animatedLatestValueRef.current = valueToSet;
   };
 
@@ -391,19 +401,11 @@ const Slider: React.FC<SliderProps> = ({
     };
 
     Animated[animationType](animationValue, config).start();
+    setCurrentValue(valueToSet);
   };
 
   const getTouchOverflowStyle = () => {
-    const { width, height } = getTouchOverflowSize();
-
     const touchOverflowStyle: StyleProp<ViewStyle> = {};
-    const verticalMargin = -height / 2;
-    touchOverflowStyle.marginTop = verticalMargin;
-    touchOverflowStyle.marginBottom = verticalMargin;
-
-    const horizontalMargin = -width / 2;
-    touchOverflowStyle.marginLeft = horizontalMargin;
-    touchOverflowStyle.marginRight = horizontalMargin;
 
     if (debugTouchArea) {
       touchOverflowStyle.backgroundColor = 'orange';
@@ -545,4 +547,3 @@ const defaultStyles = StyleSheet.create({
 });
 
 export default Slider;
-
