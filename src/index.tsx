@@ -1,5 +1,5 @@
 /* eslint-disable react-native/no-unused-styles */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from "react";
 
 import {
   Animated,
@@ -14,18 +14,19 @@ import {
   LayoutChangeEvent,
   PanResponderGestureState,
   GestureResponderEvent,
-} from 'react-native';
-import useAnimatedLatestValueRef from '@/hooks/useAnimatedLatestValueRef';
-import noop from 'utils/noop';
+} from "react-native";
+import useAnimatedLatestValueRef from "@/hooks/useAnimatedLatestValueRef";
+import noop from "utils/noop";
 
 const TRACK_SIZE = 4;
-const THUMB_SIZE = 25;
+const THUMB_SIZE = 20;
 
 type RectProps = {
   x: number;
   y: number;
   width: number;
   height: number;
+  position?: number;
 };
 
 class Rect {
@@ -36,6 +37,8 @@ class Rect {
   private readonly _width: number;
 
   private readonly _height: number;
+
+  private readonly _position?: number;
 
   get width() {
     return this._width;
@@ -53,17 +56,27 @@ class Rect {
     return this._y;
   }
 
+  get position() {
+    return this._position;
+  }
+
   constructor(rectProps: RectProps) {
-    const { x, y, width, height } = rectProps;
+    const { x, y, width, height, position } = rectProps;
 
     this._x = x;
     this._y = y;
     this._width = width;
     this._height = height;
+    this._position = position;
   }
 
   public containsPoint(x: number, y: number) {
-    return x >= this._x && y >= this._y && x <= this._x + this.width && y <= this._y + this._height;
+    return (
+      x >= this._x &&
+      y >= this._y &&
+      x <= this._x + this.width &&
+      y <= this._y + this._height
+    );
   }
 }
 
@@ -73,9 +86,8 @@ const DEFAULT_ANIMATION_CONFIGS = {
     tension: 100,
   },
   timing: {
-    duration: 150,
+    duration: 200,
     easing: Easing.inOut(Easing.ease),
-    delay: 20,
   },
   // decay: { // This has a serious bug
   // velocity: 0.5,
@@ -85,9 +97,10 @@ const DEFAULT_ANIMATION_CONFIGS = {
 
 type ContainerType = { width: number; height: number };
 
-type MeasuredDimensions = 'containerSize' | 'trackSize';
+type MeasuredDimensions = "containerSize" | "trackSize";
 
 type SliderProps = {
+  numberOfSteps?: number;
   /**
    * Initial value of the slider. The value should be between minimumValue
    * and maximumValue, which default to 0 and 1 respectively.
@@ -189,11 +202,6 @@ type SliderProps = {
   thumbImage?: ImageSourcePropType;
 
   /**
-   * Set this to true to visually see the thumb touch rect in green.
-   */
-  debugTouchArea?: boolean;
-
-  /**
    * Set to true to animate values with default 'timing' animation type
    */
   animateTransitions?: boolean;
@@ -201,7 +209,7 @@ type SliderProps = {
   /**
    * Custom Animation type. 'spring' or 'timing'.
    */
-  animationType?: 'spring' | 'timing';
+  animationType?: "spring" | "timing";
 
   /**
    * Used to configure the animation parameters.  These are the same parameters in the Animated library.
@@ -212,29 +220,27 @@ type SliderProps = {
 const emptyDimension = { width: 0, height: 0 };
 
 const Slider: React.FC<SliderProps> = ({
-                                         animationConfig = {},
-                                         animateTransitions = true,
-                                         value = 0,
-                                         minimumValue = 0,
-                                         maximumValue = 1,
-                                         step = 0,
-                                         onSlidingStart = noop,
-                                         onSlidingComplete = noop,
-                                         onValueChange,
-                                         minimumTrackTintColor = '#3f3f3f',
-                                         maximumTrackTintColor = '#b3b3b3',
-                                         thumbTintColor = '#343434',
-                                         thumbTouchSize = { width: 40, height: 40 },
-                                         animationType = 'timing',
-                                         thumbImage = null,
-                                         disabled = false,
-                                         styles = {},
-                                         style = {},
-                                         trackStyle = {},
-                                         thumbStyle = {},
-                                         debugTouchArea = false,
-                                         ...rest
-                                       }) => {
+  animationConfig = {},
+  value = 0,
+  minimumValue = 0,
+  maximumValue = 1,
+  step = 0,
+  onSlidingStart = noop,
+  onSlidingComplete = noop,
+  onValueChange,
+  minimumTrackTintColor = "#3f3f3f",
+  maximumTrackTintColor = "#b3b3b3",
+  thumbTintColor = "#343434",
+  thumbTouchSize = { width: 40, height: 40 },
+  animationType = "timing",
+  thumbImage = null,
+  disabled = false,
+  styles = {},
+  style = {},
+  trackStyle = {},
+  thumbStyle = {},
+  ...rest
+}) => {
   const sizes = useRef<Record<MeasuredDimensions, ContainerType>>({
     containerSize: { ...emptyDimension },
     trackSize: { ...emptyDimension },
@@ -242,14 +248,17 @@ const Slider: React.FC<SliderProps> = ({
   const previousLeft = useRef<number>(0);
   const [allMeasured, setAllMeasured] = useState<boolean>(false);
   const animationValue = useRef(new Animated.Value(value)).current;
-  const [animatedLatestValueRef] = useAnimatedLatestValueRef(animationValue, value);
+  const [animatedLatestValueRef] = useAnimatedLatestValueRef(
+    animationValue,
+    value
+  );
 
   const measureContainer = (e: LayoutChangeEvent) => {
-    handleMeasure('containerSize', e);
+    handleMeasure("containerSize", e);
   };
 
   const measureTrack = (e: LayoutChangeEvent) => {
-    handleMeasure('trackSize', e);
+    handleMeasure("trackSize", e);
   };
 
   const handleMeasure = (name: MeasuredDimensions, x: LayoutChangeEvent) => {
@@ -259,16 +268,23 @@ const Slider: React.FC<SliderProps> = ({
 
       const currentSize = sizes.current[name];
 
-      if ((width === currentSize.width && height === currentSize.height) || width === 0 || height === 0) {
+      if (
+        (width === currentSize.width && height === currentSize.height) ||
+        width === 0 ||
+        height === 0
+      ) {
         return;
       }
 
-      const newSizes: Record<MeasuredDimensions, ContainerType> = { ...sizes.current, [name]: size };
+      const newSizes: Record<MeasuredDimensions, ContainerType> = {
+        ...sizes.current,
+        [name]: size,
+      };
       sizes.current = newSizes;
 
       if (
         !Object.keys(newSizes).find(
-          sizeKey =>
+          (sizeKey) =>
             newSizes[sizeKey as keyof typeof newSizes].width === 0 &&
             newSizes[sizeKey as keyof typeof newSizes].height === 0
         )
@@ -282,7 +298,11 @@ const Slider: React.FC<SliderProps> = ({
     if (allMeasured) {
       return {
         width: Math.max(0, thumbTouchSize.width - THUMB_SIZE),
-        height: Math.max(0, thumbTouchSize.height - sizes.current.containerSize.height) + THUMB_SIZE,
+        height:
+          Math.max(
+            0,
+            thumbTouchSize.height - sizes.current.containerSize.height
+          ) + THUMB_SIZE,
       };
     }
 
@@ -299,7 +319,9 @@ const Slider: React.FC<SliderProps> = ({
       getThumbLeft(animatedLatestValueRef.current) +
       (THUMB_SIZE - thumbTouchSize.width) / 2;
     const y =
-      touchOverflowSize.height / 2 + (sizes.current.containerSize.height - thumbTouchSize.height) / 2 - THUMB_SIZE;
+      touchOverflowSize.height / 2 +
+      (sizes.current.containerSize.height - thumbTouchSize.height) / 2 -
+      THUMB_SIZE;
 
     return new Rect({
       x,
@@ -316,7 +338,9 @@ const Slider: React.FC<SliderProps> = ({
   };
 
   // Should we become active when the user presses down on the thumb?
-  const handleStartShouldSetPanResponder = (e: GestureResponderEvent): boolean => {
+  const handleStartShouldSetPanResponder = (
+    e: GestureResponderEvent
+  ): boolean => {
     return thumbHitTest(e);
   };
 
@@ -328,18 +352,17 @@ const Slider: React.FC<SliderProps> = ({
     onSlidingStart(animatedLatestValueRef.current);
   };
 
-  const handlePanResponderMove = (e: GestureResponderEvent, gestureState: PanResponderGestureState) => {
+  const handlePanResponderMove = (
+    e: GestureResponderEvent,
+    gestureState: PanResponderGestureState
+  ) => {
     if (disabled) {
       return;
     }
 
     const newValue = getValue(gestureState);
 
-    if (animateTransitions) {
-      setCurrentValueAnimated(newValue);
-    } else {
-      setCurrentValue(newValue);
-    }
+    setCurrentValueAnimated(newValue);
 
     onValueChange(newValue);
   };
@@ -347,18 +370,17 @@ const Slider: React.FC<SliderProps> = ({
   // Should we allow another component to take over this pan?
   const handlePanResponderRequestEnd = () => false;
 
-  const handlePanResponderEnd = (e: GestureResponderEvent, gestureState: PanResponderGestureState) => {
+  const handlePanResponderEnd = (
+    e: GestureResponderEvent,
+    gestureState: PanResponderGestureState
+  ) => {
     if (disabled) {
       return;
     }
 
     const newValue = getValue(gestureState);
 
-    if (animateTransitions) {
-      setCurrentValueAnimated(newValue);
-    } else {
-      setCurrentValue(newValue);
-    }
+    setCurrentValueAnimated(newValue);
 
     onSlidingComplete(newValue);
   };
@@ -380,15 +402,50 @@ const Slider: React.FC<SliderProps> = ({
     if (step) {
       return Math.max(
         minimumValue,
-        Math.min(maximumValue, minimumValue + Math.round((ratio * (maximumValue - minimumValue)) / step) * step)
+        Math.min(
+          maximumValue,
+          minimumValue +
+            Math.round((ratio * (maximumValue - minimumValue)) / step) * step
+        )
       );
     }
 
-    return Math.max(minimumValue, Math.min(maximumValue, ratio * (maximumValue - minimumValue) + minimumValue));
+    return Math.max(
+      minimumValue,
+      Math.min(
+        maximumValue,
+        ratio * (maximumValue - minimumValue) + minimumValue
+      )
+    );
+  };
+
+  const getTapValue = (x: number, gestureState: PanResponderGestureState) => {
+    const length = sizes.current.containerSize.width - THUMB_SIZE / 2;
+    const thumbLeft = x + gestureState.dx;
+
+    const ratio = thumbLeft / length;
+
+    if (step) {
+      return Math.max(
+        minimumValue,
+        Math.min(
+          maximumValue,
+          minimumValue +
+            Math.round((ratio * (maximumValue - minimumValue)) / step) * step
+        )
+      );
+    }
+
+    return Math.max(
+      minimumValue,
+      Math.min(
+        maximumValue,
+        ratio * (maximumValue - minimumValue) + minimumValue
+      )
+    );
   };
 
   const setCurrentValue = (valueToSet: number) => {
-    // animationValue.setValue(valueToSet);
     animatedLatestValueRef.current = valueToSet;
   };
 
@@ -405,27 +462,18 @@ const Slider: React.FC<SliderProps> = ({
   };
 
   const getTouchOverflowStyle = () => {
-    const touchOverflowStyle: StyleProp<ViewStyle> = {};
+    const { width, height } = getTouchOverflowSize();
 
-    if (debugTouchArea) {
-      touchOverflowStyle.backgroundColor = 'orange';
-      touchOverflowStyle.opacity = 0.5;
-    }
+    const touchOverflowStyle: StyleProp<ViewStyle> = {};
+    const verticalMargin = -height / 2;
+    touchOverflowStyle.marginTop = verticalMargin;
+    touchOverflowStyle.marginBottom = verticalMargin;
+
+    const horizontalMargin = -width / 2;
+    touchOverflowStyle.marginLeft = horizontalMargin;
+    touchOverflowStyle.marginRight = horizontalMargin;
 
     return touchOverflowStyle;
-  };
-
-  const renderDebugThumbTouchRect = () => {
-    const thumbTouchRect = getThumbTouchRect();
-
-    const positionStyle = {
-      left: getThumbLeft(animatedLatestValueRef.current) - 25,
-      top: thumbTouchRect.y,
-      width: thumbTouchRect.width * 1.2,
-      height: thumbTouchRect.height * 1.2,
-    };
-
-    return <Animated.View style={[defaultStyles.debugThumbTouchArea, positionStyle]} pointerEvents="none" />;
   };
 
   const renderThumbImage = () => {
@@ -433,7 +481,37 @@ const Slider: React.FC<SliderProps> = ({
       return null;
     }
 
-    return <Image source={thumbImage} />;
+    return (
+      <Image
+        width={thumbTouchSize.width}
+        height={thumbTouchSize.height}
+        // eslint-disable-next-line react-native/no-inline-styles
+        style={mainStyles.thumbImage}
+        source={thumbImage}
+      />
+    );
+  };
+
+  const handlePanOnStartShouldSetCapture = (
+    e: GestureResponderEvent,
+    state: PanResponderGestureState
+  ): boolean => {
+    if (disabled) {
+      return false;
+    }
+
+    const handlingThumb = thumbHitTest(e);
+
+    if (!handlingThumb) {
+      const { dx, dy } = state;
+
+      if (dx === 0 && dy === 0) {
+        // user probably tried to just tap, let's register it, but short-circuit pan stuff
+        setCurrentValueAnimated(getTapValue(e.nativeEvent.locationX, state));
+      }
+    }
+
+    return false;
   };
 
   const panResponder = useRef(
@@ -445,23 +523,26 @@ const Slider: React.FC<SliderProps> = ({
       onPanResponderRelease: handlePanResponderEnd,
       onPanResponderTerminationRequest: handlePanResponderRequestEnd,
       onPanResponderTerminate: handlePanResponderEnd,
+      onStartShouldSetPanResponderCapture: handlePanOnStartShouldSetCapture,
     })
   ).current;
 
   useEffect(() => {
-    if (animateTransitions) {
-      setCurrentValueAnimated(value);
-    } else {
-      setCurrentValue(value);
-    }
-  }, [setCurrentValue, setCurrentValueAnimated, animateTransitions, value]);
+    setCurrentValueAnimated(value);
+  }, [setCurrentValue, setCurrentValueAnimated, value]);
 
-  const mainStyles = styles || defaultStyles;
+  const mainStyles = { ...defaultStyles, ...styles };
 
-  const thumbLeft = animationValue.interpolate({
-    inputRange: [minimumValue, maximumValue],
-    outputRange: [0, sizes.current.containerSize.width - THUMB_SIZE],
-    // extrapolate: 'clamp',
+  const leftThumb = animationValue.interpolate({
+    inputRange: [minimumValue, 0],
+    outputRange: [sizes.current.containerSize.width / 2 - THUMB_SIZE / 2, 0],
+    extrapolate: "clamp",
+  });
+
+  const rightThumb = animationValue.interpolate({
+    inputRange: [0, maximumValue],
+    outputRange: [0, sizes.current.containerSize.width / 2 - THUMB_SIZE / 2],
+    extrapolate: "clamp",
   });
 
   const valueVisibleStyle: StyleProp<ViewStyle> = {};
@@ -470,9 +551,19 @@ const Slider: React.FC<SliderProps> = ({
     valueVisibleStyle.opacity = 0;
   }
 
-  const minimumTrackStyle = {
-    position: 'absolute',
-    width: Animated.add(thumbLeft, THUMB_SIZE / 2),
+  const rightTrackStyle = {
+    position: "absolute",
+    left: (sizes.current.containerSize.width || 0) / 2 - 2,
+    width: Animated.add(rightThumb, THUMB_SIZE / 2),
+    backgroundColor: minimumTrackTintColor,
+    ...valueVisibleStyle,
+  };
+
+  const leftTrackStyle = {
+    position: "absolute",
+    width: Animated.add(leftThumb, THUMB_SIZE / 2),
+    right: (sizes.current.containerSize.width || 0) / 2 - 2,
+    transform: [{ scaleX: -1 }],
     backgroundColor: minimumTrackTintColor,
     ...valueVisibleStyle,
   };
@@ -480,13 +571,32 @@ const Slider: React.FC<SliderProps> = ({
   const touchOverflowStyle = getTouchOverflowStyle();
 
   return (
-    <View {...rest} style={[mainStyles.container, style]} onLayout={measureContainer}>
+    <View
+      {...rest}
+      style={[mainStyles.container, style]}
+      onLayout={measureContainer}
+    >
       <View
-        style={[{ backgroundColor: maximumTrackTintColor }, mainStyles.track, trackStyle]}
+        style={[
+          { backgroundColor: maximumTrackTintColor },
+          mainStyles.track,
+          trackStyle,
+        ]}
         renderToHardwareTextureAndroid
         onLayout={measureTrack}
       />
-      <Animated.View renderToHardwareTextureAndroid style={[mainStyles.track, trackStyle, minimumTrackStyle]} />
+      {!disabled || (disabled && value <= 0) ? (
+        <Animated.View
+          renderToHardwareTextureAndroid
+          style={[mainStyles.track, trackStyle, leftTrackStyle]}
+        />
+      ) : null}
+      {!disabled || (disabled && value > 0) ? (
+        <Animated.View
+          renderToHardwareTextureAndroid
+          style={[mainStyles.track, trackStyle, rightTrackStyle]}
+        />
+      ) : null}
       <Animated.View
         renderToHardwareTextureAndroid
         style={[
@@ -496,9 +606,10 @@ const Slider: React.FC<SliderProps> = ({
           {
             transform: [
               {
-                translateX: getThumbLeft(animatedLatestValueRef.current) - (sizes.current.containerSize.width || 0) / 2,
+                translateX:
+                  value <= 0 ? Animated.multiply(leftThumb, -1) : rightThumb,
               },
-              { translateY: -thumbTouchSize.height / 2 - THUMB_SIZE / 2 },
+              { translateY: -thumbTouchSize.height / 2 },
             ],
             ...valueVisibleStyle,
           },
@@ -510,33 +621,30 @@ const Slider: React.FC<SliderProps> = ({
         renderToHardwareTextureAndroid
         style={[defaultStyles.touchArea, touchOverflowStyle]}
         {...panResponder.panHandlers}
-      >
-        {debugTouchArea === true && renderDebugThumbTouchRect()}
-      </View>
+      />
     </View>
   );
 };
 
 const defaultStyles = StyleSheet.create({
-  container: {
-    height: 40,
-    justifyContent: 'center',
-  },
-  debugThumbTouchArea: {
-    backgroundColor: 'green',
-    opacity: 0.5,
-    position: 'absolute',
-  },
+  // container: {
+  //   height: 40,
+  //   justifyContent: 'center',
+  // },
   thumb: {
-    borderRadius: THUMB_SIZE / 4,
-    height: THUMB_SIZE * 2,
-    position: 'absolute',
-    width: THUMB_SIZE * 2,
+    // position: 'absolute',
+    // borderRadius: THUMB_SIZE / 2,
+    // height: THUMB_SIZE,
+    // width: THUMB_SIZE,
+  },
+  thumbImage: {
+    height: 40,
+    width: 40,
   },
   touchArea: {
     bottom: 0,
     left: 0,
-    position: 'absolute',
+    position: "absolute",
     right: 0,
     top: 0,
   },
